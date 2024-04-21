@@ -1,49 +1,64 @@
-#!/usr/bin/env python3
 import os
-from flask import Flask, request, render_template_string
-from pymongo import MongoClient
-from pymongo.server_api import ServerApi
+import requests
+from flask import Flask, request, render_template
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
 
-uri = os.getenv("MONGO_URI")
-client = MongoClient(uri, server_api=ServerApi('1'))
+previous_requests = []
 
-try:
-    client.admin.command('ping')
-    print("Pinged your deployment. You successfully connected to MongoDB!")
-except Exception as e:
-    print(f"Failed to connect to MongoDB: {e}")
 
-db = client['history']
+def get_coordinates(city):
+    api_key = os.getenv("GEOCODING_API_KEY")
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {"address": city, "key": api_key}
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        data = response.json()
+        if data and data.get("results"):
+            location = data["results"][0]["geometry"]["location"]
+            return location.get("lat"), location.get("lng")
+    return None, None
+
+
+def get_weather_data(lat, lon):
+    api_key = os.getenv("API_KEY")
+    url = "https://api.openweathermap.org/data/2.5/weather"
+    params = {"lat": lat, "lon": lon, "appid": api_key, "units": "metric"}
+    response = requests.get(url, params=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None
 
 
 @app.route("/", methods=["GET", "POST"])
 def main():
+    error_message = None
+    temperature = None
+    description = None
+
     if request.method == "POST":
-        user_input = request.form.get("user_input", "")
-        if user_input:
-            db.inputs.insert_one({"input": user_input})
+        city = request.form.get("city", "")
+        if city:
+            previous_requests.append(city)
+            lat, lon = get_coordinates(city)
+            if lat and lon:
+                weather_data = get_weather_data(lat, lon)
+                if weather_data:
+                    temperature = weather_data.get("main", {}).get("temp")
+                    description = weather_data.get("weather", [{}])[
+                        0].get("description")
+                    if not temperature or not description:
+                        error_message = "Failed to fetch weather data"
+                else:
+                    error_message = "Failed to fetch weather data from API"
+            else:
+                error_message = "Failed to get coordinates for the city"
 
-    inputs = db.inputs.find().sort("_id", -1)
-    history = [input['input'] for input in inputs]
-
-    return render_template_string('''
-        <h1>Input Form</h1>
-        <form action="/" method="POST">
-            <input name="user_input" type="text">
-            <input type="submit" value="Submit!">
-        </form>
-        <h2>History</h2>
-        <ul>
-        {% for input in history %}
-            <li>{{ input }}</li>
-        {% endfor %}
-        </ul>
-    ''', history=history)
+    return render_template("index.html", error_message=error_message, temperature=temperature, description=description, previous_requests=previous_requests)
 
 
 if __name__ == '__main__':

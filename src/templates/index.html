@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walk or Not</title>
+</head>
+
+<body>
+    <h1>Walk or Not</h1>
+    <form action="/" method="POST">
+        <input type="text" name="city" placeholder="Enter city name">
+        <button type="submit">Get Weather</button>
+    </form>
+
+    {% if error_message %}
+    <p>{{ error_message }}</p>
+    {% endif %}
+
+    {% if temperature and description %}
+    <h2>Current Weather</h2>
+    <p>Temperature: {{ temperature }}°C</p>
+    <p>Description: {{ description }}</p>
+    {% endif %}
+
+    <h2>Previous Requests</h2>
+    <ul>
+        {% for city in previous_requests %}
+        <li>{{ city }}</li>
+        {% endfor %}
+    </ul>
+</body>
+
+</html>
