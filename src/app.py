@@ -2,12 +2,31 @@ import os
 import requests
 from flask import Flask, request, render_template
 from dotenv import load_dotenv
+from pymongo import MongoClient
+from datetime import datetime
+import logging
 
 load_dotenv()
 
 app = Flask(__name__)
 
-previous_requests = []
+# MongoDB connection
+client = MongoClient(os.getenv("MONGO_URI"))
+db = client["History"]
+collection = db["Requests"]
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+
+
+def save_request_to_db(city, temperature):
+    current_time = datetime.now()
+    request_data = {
+        "time": current_time,
+        "city": city,
+        "temperature": temperature,
+    }
+    collection.insert_one(request_data)
 
 
 def get_coordinates(city):
@@ -31,6 +50,8 @@ def get_weather_data(lat, lon):
     if response.status_code == 200:
         return response.json()
     else:
+        logging.error(
+            "Failed to fetch weather data. Status code: %s", response.status_code)
         return None
 
 
@@ -40,10 +61,12 @@ def main():
     temperature = None
     description = None
 
+    # Fetch previous requests from MongoDB
+    previous_requests = list(collection.find().sort("time", -1))
+
     if request.method == "POST":
         city = request.form.get("city", "")
         if city:
-            previous_requests.append(city)
             lat, lon = get_coordinates(city)
             if lat and lon:
                 weather_data = get_weather_data(lat, lon)
@@ -53,6 +76,8 @@ def main():
                         0].get("description")
                     if not temperature or not description:
                         error_message = "Failed to fetch weather data"
+                    else:
+                        save_request_to_db(city, temperature)
                 else:
                     error_message = "Failed to fetch weather data from API"
             else:

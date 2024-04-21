@@ -26,8 +26,12 @@
 
     <h2>Previous Requests</h2>
     <ul>
-        {% for city in previous_requests %}
-        <li>{{ city }}</li>
+        {% for request in previous_requests %}
+        <li>
+            <p>City: {{ request.city }}</p>
+            <p>Temperature: {{ request.temperature }}°C</p>
+            <p>Time: {{ request.time }}</p>
+        </li>
         {% endfor %}
     </ul>
 </body>
