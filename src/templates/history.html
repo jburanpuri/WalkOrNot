@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History</title>
+</head>
+
+<body>
+    <h1>Previous Requests</h1>
+    <ul>
+        {% for request in previous_requests %}
+        <li class="request">
+            <p class="timestamp">Time: {{ request.time }}</p>
+            <p class="city">City: {{ request.city }}</p>
+            <p class="temperature">Temperature: {{ request.temperature }}°C</p>
+            <p class="description">Description: {{ request.description }}</p>
+            <p class="pressure">Pressure: {{ request.pressure }} hPa</p>
+            <p class="humidity">Humidity: {{ request.humidity }}%</p>
+            <p class="wind_speed">Wind Speed: {{ request.wind_speed }} m/s</p>
+            <!-- Display additional weather data here -->
+            <h3>Weather Alerts:</h3>
+            <ul>
+                {% for alert in request.alerts %}
+                <li>
+                    <p><strong>{{ alert.sender_name }}</strong></p>
+                    <p><strong>Event:</strong> {{ alert.event }}</p>
+                    <p><strong>Description:</strong> {{ alert.description }}</p>
+                    <p><strong>Start:</strong> {{ alert.start }}</p>
+                    <p><strong>End:</strong> {{ alert.end }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+        </li>
+        {% endfor %}
+    </ul>
+    <a href="/" class="home-link"><button>Home</button></a>
+</body>
+
+</html>

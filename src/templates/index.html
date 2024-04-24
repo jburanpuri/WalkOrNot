@@ -24,16 +24,51 @@
     <p>Description: {{ description }}</p>
     {% endif %}
 
-    <h2>Previous Requests</h2>
+    {% if pressure %}
+    <p>Pressure: {{ pressure }} hPa</p>
+    {% endif %}
+
+    {% if humidity %}
+    <p>Humidity: {{ humidity }}%</p>
+    {% endif %}
+
+    {% if wind_speed %}
+    <p>Wind Speed: {{ wind_speed }} m/s</p>
+    {% endif %}
+
+    <h2>Hourly Forecast</h2>
     <ul>
-        {% for request in previous_requests %}
+        {% if hourly_forecast %}
+        {% for forecast in hourly_forecast %}
         <li>
-            <p>City: {{ request.city }}</p>
-            <p>Temperature: {{ request.temperature }}°C</p>
-            <p>Time: {{ request.time }}</p>
+            <p>Date: {{ forecast.dt }}</p>
+            <p>Temperature: {{ forecast.temp }}°C</p>
+            <p>Feels Like: {{ forecast.feels_like }}°C</p>
+            <p>Pressure: {{ forecast.pressure }} hPa</p>
+            <p>Humidity: {{ forecast.humidity }}%</p>
+            <p>Wind Speed: {{ forecast.wind_speed }} m/s</p>
+            <p>Weather: {{ forecast.weather[0].description }}</p>
         </li>
         {% endfor %}
+        {% endif %}
     </ul>
+
+    <h2>Weather Alerts</h2>
+    <ul>
+        {% if alerts %}
+        {% for alert in alerts %}
+        <li>
+            <p>Sender: {{ alert.sender_name }}</p>
+            <p>Event: {{ alert.event }}</p>
+            <p>Start: {{ alert.start }}</p>
+            <p>End: {{ alert.end }}</p>
+            <p>Description: {{ alert.description }}</p>
+        </li>
+        {% endfor %}
+        {% endif %}
+    </ul>
+
+    <a href="./history"><button>View History</button></a>
 </body>
 
 </html>
