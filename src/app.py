@@ -1,18 +1,14 @@
-from weather_service import get_weather_data
-from database import Database
-from messages import send_to_queue, start_consumer
-from dotenv import load_dotenv
-import time
-import threading
-import logging
-from flask import Flask, request, render_template, json, Response
-from threading import Lock
-import sys
 import os
-
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), 'src')))
-
+import sys
+from threading import Lock
+from flask import Flask, request, render_template, json, Response
+import logging
+import threading
+import time
+from dotenv import load_dotenv
+from messages import send_to_queue, start_consumer
+from database import Database
+from weather_service import get_weather_data
 
 load_dotenv()
 
