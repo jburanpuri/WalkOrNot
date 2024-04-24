@@ -60,10 +60,17 @@
         const eventSource = new EventSource('/stream');
 
         eventSource.onmessage = function (event) {
-            console.log('Received event:', event.data);
-            const data = JSON.parse(event.data);
-            const walkMessage = data.goodToWalk ? "It's a good day for a walk!" : "Not a great day for a walk.";
-            document.getElementById('weather-display').innerHTML = `City: ${data.city}, Temperature: ${data.temperature}°C. <strong>${walkMessage}</strong>`;
+            try {
+                const data = JSON.parse(event.data);
+                if (data.status) {
+                    document.getElementById('weather-display').innerHTML = data.status;
+                } else if (data.decision) {
+                    const message = `${data.decision} in ${data.city}.`;
+                    document.getElementById('weather-display').innerHTML = `Temperature: ${data.temperature}°C. <strong>${message}</strong>`;
+                }
+            } catch (e) {
+                console.error('Error parsing JSON:', e);
+            }
         };
 
         eventSource.onerror = function (event) {
@@ -71,6 +78,7 @@
             document.getElementById('weather-display').innerHTML = 'Failed to connect for updates.';
         };
     </script>
+
 </body>
 
 </html>

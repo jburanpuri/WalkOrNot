@@ -13,7 +13,6 @@ load_dotenv()
 app = Flask(__name__)
 db = Database()
 
-# Lock for thread-safe operations on data_store
 data_lock = Lock()
 data_store = {}
 
@@ -25,7 +24,8 @@ def main():
         send_to_queue('weather_requests', {'city': city})
         with data_lock:
             data_store['city'] = city
-        return render_template('loading.html')
+            data_store['status'] = "Loading weather data..."
+        return render_template('index.html')
     return render_template('index.html')
 
 
@@ -39,11 +39,18 @@ def history():
 def stream():
     def event_stream():
         while True:
+            time.sleep(1)  # Small delay to avoid tight loop
             with data_lock:
-                if 'temperature' in data_store:
-                    yield f"data: {{'city': '{data_store['city']}', 'temperature': '{data_store['temperature']}'}}\n\n"
+                if 'temperature' in data_store and 'decision' in data_store:
+                    response_data = {
+                        'city': data_store['city'],
+                        'temperature': data_store['temperature'],
+                        'decision': data_store['decision']
+                    }
+                    yield f"data: {json.dumps(response_data)}\n\n"
                     data_store.clear()
-            time.sleep(1)
+                elif 'status' in data_store:
+                    yield f"data: {json.dumps({'status': data_store['status']})}\n\n"
     return Response(event_stream(), mimetype='text/event-stream')
 
 
@@ -55,11 +62,14 @@ def process_weather_response(ch, method, properties, body):
         if weather_data:
             temperature = weather_data['main']['temp']
             db.save_request_to_db(city, temperature)
+            decision = "It's a good day for a walk!" if temperature > 10 and temperature < 30 else "Not a great day for a walk."
             with data_lock:
-                data_store['temperature'] = temperature
+                data_store.update(
+                    {'temperature': temperature, 'decision': decision})
             ch.basic_ack(delivery_tag=method.delivery_tag)
         else:
-            logging.error("Failed to fetch weather data for city: " + city)
+            with data_lock:
+                data_store['status'] = "Failed to fetch data."
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
@@ -69,7 +79,5 @@ def start_message_consumer():
 
 
 if __name__ == '__main__':
-    consumer_thread = threading.Thread(
-        target=start_message_consumer, daemon=True)
-    consumer_thread.start()
+    threading.Thread(target=start_message_consumer, daemon=True).start()
     app.run(debug=True)
