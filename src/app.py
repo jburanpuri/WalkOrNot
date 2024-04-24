@@ -6,9 +6,9 @@ import logging
 import threading
 import time
 from dotenv import load_dotenv
-from messages.messages import send_to_queue, start_consumer
-from database.database import Database
-from weather_service.weather_service import get_weather_data
+from src.messages.messages import send_to_queue, start_consumer
+from src.weather_service.weather_service import get_weather_data
+from src.database.database import Database
 
 
 load_dotenv()
