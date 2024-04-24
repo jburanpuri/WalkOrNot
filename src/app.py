@@ -6,11 +6,17 @@ import logging
 import threading
 import time
 from dotenv import load_dotenv
-from messages import send_to_queue, start_consumer
-from database import Database
-from weather_service import get_weather_data
+import messages
+import database
+import weather_service
 
 load_dotenv()
+
+messages.send_to_queue()
+messages.start_consumer()
+database.Database()
+weather_service.get_weather_data()
+
 
 app = Flask(__name__)
 db = Database()
