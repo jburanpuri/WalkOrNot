@@ -1,7 +1,7 @@
 from threading import Lock
 from flask import Flask, request, render_template, json, Response
 import logging
-from messages import send_to_queue, start_consumer
+from messages import send_to_queue, start_consumer  # New import
 from database import Database
 from weather_service import get_weather_data
 import threading
