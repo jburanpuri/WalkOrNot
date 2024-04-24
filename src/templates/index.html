@@ -14,7 +14,8 @@
             color: #333;
         }
 
-        #weather-display {
+        #weather-display,
+        #history-display {
             background-color: #fff;
             border: 1px solid #ddd;
             padding: 15px;
@@ -50,35 +51,31 @@
 
 <body>
     <h1>Walk or Not?</h1>
-    <form action="/" method="POST">
-        <input type="text" name="city" placeholder="Enter city name" required>
+    <form onsubmit="checkWeather(event)">
+        <input type="text" id="cityInput" placeholder="Enter city name" required>
         <button type="submit">Check Weather</button>
     </form>
+    <button onclick="window.location.href='/history'">View History</button>
     <div id="weather-display">Submit a city to see if it's a good day for a walk.</div>
 
     <script>
-        const eventSource = new EventSource('/stream');
+        function checkWeather(event) {
+            event.preventDefault();
+            var city = document.getElementById('cityInput').value;
 
-        eventSource.onmessage = function (event) {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.status) {
-                    document.getElementById('weather-display').innerHTML = data.status;
-                } else if (data.decision) {
-                    const message = `${data.decision} in ${data.city}.`;
-                    document.getElementById('weather-display').innerHTML = `Temperature: ${data.temperature}°C. <strong>${message}</strong>`;
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/check_weather", true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var response = JSON.parse(xhr.responseText);
+                    var displayText = 'In ' + response.city + ', the temperature is ' + response.temperature + '°C and the condition is ' + response.condition + '. ' + response.analysis;
+                    document.getElementById('weather-display').innerText = displayText;
                 }
-            } catch (e) {
-                console.error('Error parsing JSON:', e);
-            }
-        };
-
-        eventSource.onerror = function (event) {
-            console.error('EventSource failed:', event);
-            document.getElementById('weather-display').innerHTML = 'Failed to connect for updates.';
-        };
+            };
+            xhr.send("city=" + encodeURIComponent(city));
+        }
     </script>
-
 </body>
 
 </html>

@@ -3,25 +3,70 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>History of Weather Requests</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History - Walk or Not</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        #history-display {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e9e9e9;
+            border-radius: 8px;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Previous Requests</h1>
-    <ul>
-        {% for request in previous_requests %}
-        <li>
-            <p>Time: {{ request.time }}</p>
-            <p>City: {{ request.city }}</p>
-            <p>Temperature: {{ request.temperature }}°C</p>
-            <p>Description: {{ request.description }}</p>
-            <p>Pressure: {{ request.pressure }} hPa</p>
-            <p>Humidity: {{ request.humidity }}%</p>
-            <p>Wind Speed: {{ request.wind_speed }} m/s</p>
-        </li>
-        {% endfor %}
-    </ul>
-    <a href="/"><button>Home</button></a>
+    <h1>History of Weather Checks</h1>
+    <div id="history-display">
+        <ul id="history-list">
+        </ul>
+    </div>
+
+    <script>
+        window.onload = function () {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/history_data", true);  // Updated to correct endpoint
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var history = JSON.parse(xhr.responseText);
+                    var historyList = document.getElementById('history-list');
+                    if (history.length === 0) {
+                        historyList.innerHTML = '<li>No history data available.</li>';
+                    } else {
+                        history.forEach(function (item) {
+                            var li = document.createElement('li');
+                            li.textContent = 'City: ' + item.city + ', Temp: ' + item.temperature + '°C, Condition: ' + item.condition + ', Analysis: ' + item.analysis;
+                            historyList.appendChild(li);
+                        });
+                    }
+                }
+            };
+            xhr.send();
+        }
+    </script>
+
 </body>
 
 </html>

@@ -1,94 +1,72 @@
+from flask import Flask, request, jsonify, render_template
+import requests
+from pymongo import MongoClient
 import os
-import sys
-from threading import Lock
-from flask import Flask, request, render_template, json, Response
-import logging
-import threading
-import time
 from dotenv import load_dotenv
-import os
+from messages import send_message, setup_queue
 
-if 'HEROKU' in os.environ:
-    from src.messages.messages import send_to_queue, start_consumer
-    from src.database.database import Database
-    from src.weather_service.weather_service import get_weather_data
-else:
-    from messages.messages import send_to_queue, start_consumer
-    from database.database import Database
-    from weather_service.weather_service import get_weather_data
-
-
+# Load environment variables
 load_dotenv()
 
-
 app = Flask(__name__)
-db = Database()
 
-data_lock = Lock()
-data_store = {}
+# MongoDB setup
+client = MongoClient(os.getenv('MONGO_URI'))
+db = client.walkornot
+history = db.history
 
 
-@app.route("/", methods=["GET", "POST"])
-def main():
-    if request.method == "POST":
-        city = request.form.get('city')
-        send_to_queue('weather_requests', {'city': city})
-        with data_lock:
-            data_store['city'] = city
-            data_store['status'] = "Loading weather data..."
-        return render_template('index.html')
+def data_analyzer(temperature, condition):
+    if temperature > 10 and ('rain' not in condition.lower()):
+        return "Good day for a walk"
+    else:
+        return "Not a good day for a walk"
+
+
+@app.route('/')
+def index():
     return render_template('index.html')
 
 
-@app.route("/history")
-def history():
-    previous_requests = db.get_previous_requests()
-    return render_template("history.html", previous_requests=previous_requests)
+@app.route('/check_weather', methods=['POST'])
+def check_weather():
+    city = request.form['city']
+    geo_url = "https://maps.googleapis.com/maps/api/geocode/json?address={}&key={}".format(
+        city, os.getenv('GEOCODING_API_KEY'))
+    geo_resp = requests.get(geo_url).json()
+    lat = geo_resp['results'][0]['geometry']['location']['lat']
+    lon = geo_resp['results'][0]['geometry']['location']['lng']
+
+    weather_url = "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}&units=metric".format(
+        lat, lon, os.getenv('API_KEY'))
+    weather_resp = requests.get(weather_url).json()
+    temperature = weather_resp['main']['temp']
+    condition = weather_resp['weather'][0]['main']
+
+    analysis = data_analyzer(temperature, condition)
+
+    # Save to MongoDB
+    history.insert_one({'city': city, 'temperature': temperature,
+                       'condition': condition, 'analysis': analysis})
+
+    # Send message to queue
+    send_message({'city': city, 'temperature': temperature,
+                 'condition': condition, 'analysis': analysis})
+
+    return jsonify({'city': city, 'temperature': temperature, 'condition': condition, 'analysis': analysis})
 
 
-@app.route('/stream')
-def stream():
-    def event_stream():
-        while True:
-            time.sleep(1)  # Small delay to avoid tight loop
-            with data_lock:
-                if 'temperature' in data_store and 'decision' in data_store:
-                    response_data = {
-                        'city': data_store['city'],
-                        'temperature': data_store['temperature'],
-                        'decision': data_store['decision']
-                    }
-                    yield f"data: {json.dumps(response_data)}\n\n"
-                    data_store.clear()
-                elif 'status' in data_store:
-                    yield f"data: {json.dumps({'status': data_store['status']})}\n\n"
-    return Response(event_stream(), mimetype='text/event-stream')
+@app.route('/history', methods=['GET'])
+def history_page():
+    return render_template('history.html')
 
 
-def process_weather_response(ch, method, properties, body):
-    try:
-        response = json.loads(body)
-        city = response['city']
-        weather_data = get_weather_data(city)
-        if weather_data:
-            temperature = weather_data['main']['temp']
-            db.save_request_to_db(city, temperature)
-            decision = "It's a good day for a walk!" if temperature > 10 and temperature < 30 else "Not a great day for a walk."
-            with data_lock:
-                data_store.update(
-                    {'temperature': temperature, 'decision': decision})
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-        else:
-            with data_lock:
-                data_store['status'] = "Failed to fetch data."
-    except Exception as e:
-        logging.error(f"An error occurred: {e}")
-
-
-def start_message_consumer():
-    start_consumer('weather_responses', process_weather_response)
+@app.route('/history_data', methods=['GET'])
+def get_history():
+    records = list(history.find({}, {'_id': 0}))
+    return jsonify(records)
 
 
 if __name__ == '__main__':
-    threading.Thread(target=start_message_consumer, daemon=True).start()
+    setup_queue()
     app.run(debug=True)
