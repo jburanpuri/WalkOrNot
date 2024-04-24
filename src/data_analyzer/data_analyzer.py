@@ -1,5 +1,5 @@
 import json
-from messages import create_connection, start_consumer
+from messages.messages import create_connection, start_consumer
 
 
 def process_weather_data(ch, method, properties, body):
