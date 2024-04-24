@@ -9,66 +9,60 @@
 
 <body>
     <h1>Walk or Not</h1>
-    <form action="/" method="POST">
-        <input type="text" name="city" placeholder="Enter city name">
-        <button type="submit">Get Weather</button>
+
+    <form id="weather-form" method="POST">
+        <label for="city">Enter city name:</label>
+        <input type="text" id="city" name="city" placeholder="Enter city name">
+        <button type="submit">Submit</button>
     </form>
 
-    {% if error_message %}
-    <p>{{ error_message }}</p>
-    {% endif %}
+    <div id="previous-requests">
+        <h2>Previous Requests</h2>
+        <ul id="requests-list">
+            {% for request in previous_requests %}
+            <li>{{ request.city }} - {{ request.temperature }}°C ({{ request.time }})</li>
+            {% endfor %}
+        </ul>
+    </div>
 
-    {% if temperature and description %}
-    <h2>Current Weather</h2>
-    <p>Temperature: {{ temperature }}°C</p>
-    <p>Description: {{ description }}</p>
-    {% endif %}
+    <script>
+        document.getElementById('weather-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            var city = document.getElementById('city').value;
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onload = function () {
+                var response = JSON.parse(xhr.responseText);
+                if (response.message) {
+                    alert(response.message); // or display the message in a designated area
+                } else if (response.error_message) {
+                    alert(response.error_message); // or display the error message in a designated area
+                }
+            };
+            xhr.send('city=' + encodeURIComponent(city));
+        });
 
-    {% if pressure %}
-    <p>Pressure: {{ pressure }} hPa</p>
-    {% endif %}
-
-    {% if humidity %}
-    <p>Humidity: {{ humidity }}%</p>
-    {% endif %}
-
-    {% if wind_speed %}
-    <p>Wind Speed: {{ wind_speed }} m/s</p>
-    {% endif %}
-
-    <h2>Hourly Forecast</h2>
-    <ul>
-        {% if hourly_forecast %}
-        {% for forecast in hourly_forecast %}
-        <li>
-            <p>Date: {{ forecast.dt }}</p>
-            <p>Temperature: {{ forecast.temp }}°C</p>
-            <p>Feels Like: {{ forecast.feels_like }}°C</p>
-            <p>Pressure: {{ forecast.pressure }} hPa</p>
-            <p>Humidity: {{ forecast.humidity }}%</p>
-            <p>Wind Speed: {{ forecast.wind_speed }} m/s</p>
-            <p>Weather: {{ forecast.weather[0].description }}</p>
-        </li>
-        {% endfor %}
-        {% endif %}
-    </ul>
-
-    <h2>Weather Alerts</h2>
-    <ul>
-        {% if alerts %}
-        {% for alert in alerts %}
-        <li>
-            <p>Sender: {{ alert.sender_name }}</p>
-            <p>Event: {{ alert.event }}</p>
-            <p>Start: {{ alert.start }}</p>
-            <p>End: {{ alert.end }}</p>
-            <p>Description: {{ alert.description }}</p>
-        </li>
-        {% endfor %}
-        {% endif %}
-    </ul>
-
-    <a href="./history"><button>View History</button></a>
+        function updatePreviousRequests() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/');
+            xhr.onload = function () {
+                var response = JSON.parse(xhr.responseText);
+                var previousRequests = response.previous_requests;
+                var requestsList = document.getElementById('requests-list');
+                requestsList.innerHTML = ''; // clear the previous list
+                previousRequests.forEach(function (request) {
+                    var li = document.createElement('li');
+                    li.textContent = request.city + ' - ' + request.temperature + '°C (' + request.time + ')';
+                    requestsList.appendChild(li);
+                });
+            };
+            xhr.send();
+        }
+        // call updatePreviousRequests initially and every 5 seconds
+        updatePreviousRequests();
+        setInterval(updatePreviousRequests, 50);
+    </script>
 </body>
 
 </html>

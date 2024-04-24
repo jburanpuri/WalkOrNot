@@ -3,8 +3,12 @@ import json
 import os
 import pika
 from dotenv import load_dotenv
+from database import Database
+from weather_service import get_weather_data
 
 load_dotenv()
+
+db = Database()
 
 
 def create_connection():
@@ -41,13 +45,16 @@ def start_consumer(queue_name, callback):
 logging.basicConfig(level=logging.DEBUG)
 
 
-def process_weather_request(city):
-    logging.debug(f"Processing request for city: {city}")
-    weather_data = get_weather_data(city)
-    if weather_data:
-        current_weather = weather_data.get("main", {})
-        temperature = current_weather.get("temp")
-        logging.debug(f"Temperature for {city}: {temperature}")
-        save_request_to_db(city, temperature)
-    else:
-        logging.error("Failed to fetch or process weather data.")
+def process_weather_request(ch, method, properties, body):
+    try:
+        city = json.loads(body)['city']
+        logging.debug("Received weather request for city: " + city)
+        weather_data = get_weather_data(city)
+        if weather_data:
+            logging.debug("Weather data fetched: " + str(weather_data))
+            db.save_request_to_db(city, weather_data['main']['temp'])
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+        else:
+            logging.error("Failed to fetch weather data for city: " + city)
+    except Exception as e:
+        logging.error("An error occurred: " + str(e))
