@@ -53,7 +53,7 @@
     <h1>Walk or Not?</h1>
     <form onsubmit="checkWeather(event)">
         <input type="text" id="cityInput" placeholder="Enter city name" required>
-        <button type="submit">Check Weather</button>
+        <button type="submit">Check</button>
     </form>
     <button onclick="window.location.href='/history'">View History</button>
     <div id="weather-display">Submit a city to see if it's a good day for a walk.</div>
@@ -69,13 +69,22 @@
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     var response = JSON.parse(xhr.responseText);
-                    var displayText = 'In ' + response.city + ', the temperature is ' + response.temperature + '°C and the condition is ' + response.condition + '. ' + response.analysis;
+                    var now = new Date();
+                    var timeStr = now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();
+
+                    var displayText = 'As of ' + timeStr + ', in ' + response.city + ': ' + response.facts.join(', ') + '.';
+
+                    if (response.suggestions.length > 0) {
+                        displayText += ' Suggestions: ' + response.suggestions;
+                    }
+
                     document.getElementById('weather-display').innerText = displayText;
                 }
             };
             xhr.send("city=" + encodeURIComponent(city));
         }
     </script>
+
 </body>
 
 </html>

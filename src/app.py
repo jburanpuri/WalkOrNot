@@ -3,7 +3,8 @@ import requests
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
-from messages import send_message, setup_queue
+from src.messages import send_message, setup_queue
+import datetime
 
 # Load environment variables
 load_dotenv()
@@ -16,11 +17,49 @@ db = client.walkornot
 history = db.history
 
 
-def data_analyzer(temperature, condition):
-    if temperature > 10 and ('rain' not in condition.lower()):
-        return "Good day for a walk"
-    else:
-        return "Not a good day for a walk"
+def data_analyzer(current):
+    suggestions = []
+
+    feels_like = current['main']['feels_like'] - 273.15
+    visibility = current['visibility']
+    cloudiness = current['clouds']['all']
+    temp_min = current['main']['temp_min'] - 273.15
+    temp_max = current['main']['temp_max'] - 273.15
+    conditions = current['weather'][0]['main']
+
+    facts = [
+        "Feels-like temperature: {:.1f}°C".format(feels_like),
+        "visibility: {} meters".format(visibility),
+        "minimum temperature: {:.1f}°C".format(temp_min),
+        "maximum temperature: {:.1f}°C".format(temp_max),
+        "weather conditions: {} (cloudiness: {}%)".format(
+            conditions, cloudiness)
+    ]
+
+    if 'Rain' in current['weather'][0]['main']:
+        suggestions.append(
+            "Consider wearing a raincoat or carrying an umbrella.")
+    if temp_min < 10:
+        suggestions.append(
+            "It's quite chilly, so consider wearing a jacket or sweater.")
+
+    if visibility > 10000:
+        suggestions.append(
+            "Visibility is good, so you can enjoy the view.")
+
+    if cloudiness > 70:
+        suggestions.append(
+            "It's cloudy. Either its vibes or you stay inside.")
+
+    if suggestions == []:
+        suggestions.append("The weather is nice. Enjoy your walk!")
+
+    analysis_response = {
+        'facts': facts,
+        'suggestions': " ".join(suggestions)
+    }
+
+    return analysis_response
 
 
 @app.route('/')
@@ -34,26 +73,51 @@ def check_weather():
     geo_url = "https://maps.googleapis.com/maps/api/geocode/json?address={}&key={}".format(
         city, os.getenv('GEOCODING_API_KEY'))
     geo_resp = requests.get(geo_url).json()
+    if 'results' not in geo_resp or not geo_resp['results']:
+        return jsonify({'error': 'Geocode data not found for the specified city'}), 404
+
     lat = geo_resp['results'][0]['geometry']['location']['lat']
     lon = geo_resp['results'][0]['geometry']['location']['lng']
 
-    weather_url = "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}&units=metric".format(
+    weather_url = "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}".format(
         lat, lon, os.getenv('API_KEY'))
     weather_resp = requests.get(weather_url).json()
-    temperature = weather_resp['main']['temp']
-    condition = weather_resp['weather'][0]['main']
 
-    analysis = data_analyzer(temperature, condition)
+    if 'main' not in weather_resp or 'weather' not in weather_resp:
+        return jsonify({'error': 'Weather data not found'}), 404
 
-    # Save to MongoDB
-    history.insert_one({'city': city, 'temperature': temperature,
-                       'condition': condition, 'analysis': analysis})
+    analysis = data_analyzer(weather_resp)
 
-    # Send message to queue
-    send_message({'city': city, 'temperature': temperature,
-                 'condition': condition, 'analysis': analysis})
+    document = {
+        'city': city,
+        'feels_like': round(weather_resp['main']['feels_like'] - 273.15, 1),
+        'humidity': weather_resp['main']['humidity'],
+        'visibility': weather_resp['visibility'],
+        'cloudiness': weather_resp['clouds']['all'],
+        'temp_min': round(weather_resp['main']['temp_min'] - 273.15, 1),
+        'temp_max': round(weather_resp['main']['temp_max'] - 273.15, 1),
+        'weather_main': weather_resp['weather'][0]['main'],
+        'facts': analysis['facts'],
+        'suggestions': analysis['suggestions'],
+        'timestamp': datetime.datetime.now()
+    }
 
-    return jsonify({'city': city, 'temperature': temperature, 'condition': condition, 'analysis': analysis})
+    history.insert_one(document)
+
+    response_data = {
+        'city': city,
+        'feels_like': round(weather_resp['main']['feels_like'] - 273.15, 1),
+        'humidity': weather_resp['main']['humidity'],
+        'visibility': weather_resp['visibility'],
+        'cloudiness': weather_resp['clouds']['all'],
+        'temp_min': round(weather_resp['main']['temp_min'] - 273.15, 1),
+        'temp_max': round(weather_resp['main']['temp_max'] - 273.15, 1),
+        'weather_main': weather_resp['weather'][0]['main'],
+        'facts': analysis['facts'],
+        'suggestions': analysis['suggestions']
+    }
+
+    return jsonify(response_data)
 
 
 @app.route('/history', methods=['GET'])
