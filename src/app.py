@@ -1,12 +1,12 @@
 from threading import Lock
 from flask import Flask, request, render_template, json, Response
 import logging
-from database import Database
 from weather_service import get_weather_data
 import threading
 import time
 from dotenv import load_dotenv
 from messages import send_to_queue, start_consumer
+from database import Database
 
 
 load_dotenv()
