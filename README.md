@@ -1,7 +1,6 @@
 # WALK OR NOT – PROJECT REPORT
 
 ## Project Links
-- **Live Application:** [Walk or Not on Heroku](https://walkornot-7a4f9baaf72e.herokuapp.com)
 - **Code Repository:** [WalkorNot on GitHub](https://github.com/jburanpuri/WalkorNot)
 
 ## Introduction
